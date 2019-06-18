@@ -46,7 +46,7 @@ Func ParseClipboard()
 	  $oData = $oData & $lineData
    Next
 
-   $oData = "{" & @LF & $oData & @TAB & "{.opcode_reg = 0, .adrp_offset = 0, .add_rel_offset = 0}," & @LF & "}" & @LF
+   $oData = "{ \" & @LF & $oData & @TAB & "{.opcode_reg = 0, .adrp_offset = 0, .add_rel_offset = 0}, \" & @LF & "}" & @LF
    ;ConsoleWrite($oData)
    ClipPut($oData)
 EndFunc
