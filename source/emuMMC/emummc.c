@@ -139,7 +139,7 @@ static void _file_based_emmc_initialize(void)
     memset(&f_emu, 0, sizeof(file_based_ctxt));
 
     memcpy(path, (void *)emuMMC_ctx.storagePath, sizeof(emuMMC_ctx.storagePath));
-    strcat(path, "/eMMC");
+    strcat(path, "/eMMC/");
     int path_len = strlen(path);
 
     // Open BOOT0 physical partition.
