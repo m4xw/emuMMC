@@ -1011,10 +1011,13 @@ static int _sdmmc_config_sdmmc1()
 	PINMUX_AUX(PINMUX_AUX_SDMMC1_DAT1) = PINMUX_DRIVE_2X | PINMUX_INPUT_ENABLE | PINMUX_PARKED | PINMUX_PULL_UP;
 	PINMUX_AUX(PINMUX_AUX_SDMMC1_DAT0) = PINMUX_DRIVE_2X | PINMUX_INPUT_ENABLE | PINMUX_PARKED | PINMUX_PULL_UP;
 
+	//Make sure SDMMC1 controller is reset.
+	smcReadWriteRegister(PMC_BASE + APBDEV_PMC_NO_IOPOWER, (1 << 12), (1 << 12));
+	usleep(1000);
+
 	//Make sure the SDMMC1 controller is powered.
-	//PMC(APBDEV_PMC_NO_IOPOWER) &= ~(1 << 12);
-	//Assume 3.3V SD card voltage.
-	//PMC(APBDEV_PMC_PWR_DET_VAL) |= (1 << 12);
+	smcReadWriteRegister(PMC_BASE + APBDEV_PMC_NO_IOPOWER, ~(1 << 12), (1 << 12));
+	smcReadWriteRegister(PMC_BASE + APBDEV_PMC_PWR_DET_VAL, (1 << 12), (1 << 12));
 
 	//Set enable SD card power.
 	PINMUX_AUX(PINMUX_AUX_DMIC3_CLK) = PINMUX_INPUT_ENABLE | PINMUX_PULL_DOWN | 1; //GPIO control, pull down.
@@ -1025,10 +1028,10 @@ static int _sdmmc_config_sdmmc1()
 	usleep(1000);
 
 	//Enable SD card power.
-	//max77620_regulator_set_voltage(REGULATOR_LDO2, 3300000);
-	//max77620_regulator_enable(REGULATOR_LDO2, 1);
+	max77620_regulator_set_voltage(REGULATOR_LDO2, 3300000);
+	max77620_regulator_enable(REGULATOR_LDO2, 1);
 
-	//usleep(1000);
+	usleep(1000);
 
 	//For good measure.
 	APB_MISC(APB_MISC_GP_SDMMC1_PAD_CFGPADCTRL) = 0x10000000;
@@ -1103,8 +1106,9 @@ void sdmmc_end(sdmmc_t *sdmmc)
 		if (sdmmc->id == SDMMC_1)
 		{
 			gpio_output_enable(GPIO_PORT_E, GPIO_PIN_4, GPIO_OUTPUT_DISABLE);
-			//max77620_regulator_enable(REGULATOR_LDO2, 0);
-			msleep(100); // To power cycle min 1ms without power is needed.
+			msleep(1); // To power cycle min 1ms without power is needed.
+			max77620_regulator_enable(REGULATOR_LDO2, 0);
+			msleep(100); // Some extra.
 		}
 
 		_sdmmc_get_clkcon(sdmmc);
@@ -1158,7 +1162,7 @@ int sdmmc_enable_low_voltage(sdmmc_t *sdmmc)
 	_sdmmc_get_clkcon(sdmmc);
 
 	max77620_regulator_set_voltage(REGULATOR_LDO2, 1800000);
-	PMC(APBDEV_PMC_PWR_DET_VAL) &= ~(1 << 12);
+	smcReadWriteRegister(PMC_BASE + APBDEV_PMC_PWR_DET_VAL, ~(1 << 12), (1 << 12));
 
 	_sdmmc_autocal_config_offset(sdmmc, SDMMC_POWER_1_8);
 	_sdmmc_autocal_execute(sdmmc, SDMMC_POWER_1_8);

@@ -703,7 +703,7 @@ static int _sd_storage_get_op_cond(sdmmc_storage_t *storage, int is_version_1, i
 			if (cond & SD_OCR_CCS)
 				storage->has_sector_access = 1;
 
-			if (false && cond & SD_ROCR_S18A && supports_low_voltage)
+			if (cond & SD_ROCR_S18A && supports_low_voltage)
 			{
 				//The low voltage regulator configuration is valid for SDMMC1 only.
 				if (storage->sdmmc->id == SDMMC_1 &&
