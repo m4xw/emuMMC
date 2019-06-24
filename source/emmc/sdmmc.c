@@ -109,7 +109,7 @@ int sdmmc_get_fitting_dma_index(sdmmc_accessor_t *_this, unsigned int num_sector
             }
             else
             {
-                // If buffer is on a random heap
+                // Can't find a fitting buffer
                 return 0;
             }
         }
