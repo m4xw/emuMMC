@@ -22,6 +22,8 @@
 #include <string.h>
 #include "nx/svc.h"
 #include "nx/smc.h"
+#include "soc/clock.h"
+#include "soc/i2c.h"
 #include "emuMMC/emummc.h"
 #include "emuMMC/emummc_ctx.h"
 #include "FS/FS_offsets.h"
@@ -316,4 +318,7 @@ void __init()
     populate_function_pointers();
     write_nops();
     setup_nintendo_paths();
+
+    clock_enable_i2c5();
+    i2c_init();
 }
