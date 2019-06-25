@@ -641,23 +641,6 @@ static int _sdmmc_autocal_config_offset(sdmmc_t *sdmmc, u32 power)
 
 static void _sdmmc_autocal_execute(sdmmc_t *sdmmc, u32 power)
 {
-	if(sdmmc->id == SDMMC_1)
-	{
-		static int last_power = SDMMC_POWER_3_3;
-		if(power == SDMMC_POWER_1_8 && last_power == SDMMC_POWER_3_3)
-		{
-			last_power = power = SDMMC_POWER_1_8;
-			if (!_sdmmc_autocal_config_offset(sdmmc, power))
-				return;
-		} 
-		else if(power == SDMMC_POWER_3_3 && last_power == SDMMC_POWER_1_8)
-		{
-			last_power = power = SDMMC_POWER_3_3;
-			if (!_sdmmc_autocal_config_offset(sdmmc, power))
-				return;
-		}
-	}
-		
 	bool should_enable_sd_clock = false;
 	if (sdmmc->regs->clkcon & TEGRA_MMC_CLKCON_SD_CLOCK_ENABLE)
 	{
@@ -1074,7 +1057,7 @@ int sdmmc_init(sdmmc_t *sdmmc, u32 id, u32 power, u32 bus_width, u32 type, int n
 	sdmmc->regs->veniotrimctl &= 0xFFFFFFFB;
 	static const u32 trim_values[] = { 2, 8, 3, 8 };
 	sdmmc->regs->venclkctl = (sdmmc->regs->venclkctl & 0xE0FFFFFF) | (trim_values[sdmmc->id] << 24);
-	sdmmc->regs->sdmemcmppadctl = (sdmmc->regs->sdmemcmppadctl & 0xF) | 7;
+	sdmmc->regs->sdmemcmppadctl = (sdmmc->regs->sdmemcmppadctl & 0xFFFFFFF0) | 7;
 	if (!_sdmmc_autocal_config_offset(sdmmc, power))
 		return 0;
 	_sdmmc_autocal_execute(sdmmc, power);
