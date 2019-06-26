@@ -247,14 +247,20 @@ sdmmc_accessor_t *sdmmc_accessor_get(int mmc_id)
 
 void mutex_lock_handler(int mmc_id)
 {
-    lock_mutex(sd_mutex);
+    if (custom_driver)
+    {
+        lock_mutex(sd_mutex);
+    }
     lock_mutex(nand_mutex);
 }
 
 void mutex_unlock_handler(int mmc_id)
 {
     unlock_mutex(nand_mutex);
-    unlock_mutex(sd_mutex);
+    if (custom_driver)
+    {
+        unlock_mutex(sd_mutex);
+    }
 }
 
 int sdmmc_nand_get_active_partition_index()
@@ -362,33 +368,22 @@ uint64_t sdmmc_wrapper_read(void *buf, uint64_t bufSize, int mmc_id, unsigned in
                 return 0;
             }
 
-            // FS tries to re-init on 3rd fail
-            sdmmc_finalize();
-            sdmmc_initialize();
-
-            if (emummc_read_write_inner(buf, sector, num_sectors, false))
-            {
-                mutex_unlock_handler(mmc_id);
-                return 0;
-            }
-
             mutex_unlock_handler(mmc_id);
             return FS_READ_WRITE_ERROR;
         }
 
         if (mmc_id == FS_SDMMC_SD)
         {
-            // Call hekates driver.
-            if (sdmmc_storage_read(&sd_storage, sector, num_sectors, buf))
+            static bool first_sd_read = true;
+            if (first_sd_read)
             {
-                mutex_unlock_handler(mmc_id);
-                return 0;
+                first_sd_read = false;
+                custom_driver = false;
+                // FS will handle sd mutex w/o custom driver
+                unlock_mutex(sd_mutex);
             }
 
-            // FS tries to re-init on 3rd fail
-            sdmmc_finalize();
-            sdmmc_initialize();
-
+            // Call hekates driver.
             if (sdmmc_storage_read(&sd_storage, sector, num_sectors, buf))
             {
                 mutex_unlock_handler(mmc_id);
@@ -428,16 +423,6 @@ uint64_t sdmmc_wrapper_write(int mmc_id, unsigned int sector, unsigned int num_s
                 return 0;
             }
 
-            // FS tries to re-init on 3rd fail
-            sdmmc_finalize();
-            sdmmc_initialize();
-
-            if (emummc_read_write_inner(buf, sector, num_sectors, true))
-            {
-                mutex_unlock_handler(mmc_id);
-                return 0;
-            }
-
             mutex_unlock_handler(mmc_id);
             return FS_READ_WRITE_ERROR;
         }
@@ -450,16 +435,6 @@ uint64_t sdmmc_wrapper_write(int mmc_id, unsigned int sector, unsigned int num_s
             sector += 0;
 
             // Call hekates driver.
-            if (sdmmc_storage_write(&sd_storage, sector, num_sectors, buf))
-            {
-                mutex_unlock_handler(mmc_id);
-                return 0;
-            }
-
-            // FS tries to re-init on 3rd fail
-            sdmmc_finalize();
-            sdmmc_initialize();
-            
             if (sdmmc_storage_write(&sd_storage, sector, num_sectors, buf))
             {
                 mutex_unlock_handler(mmc_id);

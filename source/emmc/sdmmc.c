@@ -24,11 +24,13 @@
 #include "../utils/types.h"
 #include "../utils/util.h"
 #include "../utils/fatal.h"
+#include "../emuMMC/emummc.h"
 
 #define DPRINTF(...) //fprintf(stdout, __VA_ARGS__)
 
 sdmmc_accessor_t *_current_accessor = NULL;
 bool sdmmc_memcpy_buf = false;
+extern bool custom_driver;
 
 static inline u32 unstuff_bits(u32 *resp, u32 start, u32 size)
 {
@@ -266,14 +268,54 @@ out:;
 	return 1;
 }
 
+extern _sdmmc_accessor_sd sdmmc_accessor_sd;
+extern _sdmmc_accessor_nand sdmmc_accessor_nand;
 int sdmmc_storage_read(sdmmc_storage_t *storage, u32 sector, u32 num_sectors, void *buf)
 {
-	return _sdmmc_storage_readwrite(storage, sector, num_sectors, buf, 0);
+    if (!custom_driver)
+    {
+        if (sdmmc_calculate_dma_addr(sdmmc_accessor_sd(), buf, num_sectors))
+        {
+            return !sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, buf, num_sectors * 512, 1);
+        }
+        else
+        {
+            int dma_idx = sdmmc_get_fitting_dma_index(sdmmc_accessor_sd(), num_sectors);
+            void* dma_buf = &sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer[0];
+
+            u64 res = sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, dma_buf, num_sectors * 512, 1);
+            memcpy(buf, dma_buf, num_sectors * 512);
+
+            return !res;
+        }
+    }
+    else
+    {
+        return _sdmmc_storage_readwrite(storage, sector, num_sectors, buf, 0);
+    }
 }
 
 int sdmmc_storage_write(sdmmc_storage_t *storage, u32 sector, u32 num_sectors, void *buf)
 {
-	return _sdmmc_storage_readwrite(storage, sector, num_sectors, buf, 1);
+    if (!custom_driver)
+    {
+        if (sdmmc_calculate_dma_addr(sdmmc_accessor_sd(), buf, num_sectors))
+        {
+            return !sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, buf, num_sectors * 512, 0);
+        }
+        else
+        {
+            int dma_idx = sdmmc_get_fitting_dma_index(sdmmc_accessor_sd(), num_sectors);
+            void* dma_buf = &sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer[0];
+            
+            memcpy(dma_buf, buf, num_sectors * 512);
+            return !sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, dma_buf, num_sectors * 512, 0);
+        }
+    }
+    else
+    {
+        return _sdmmc_storage_readwrite(storage, sector, num_sectors, buf, 1);
+    }
 }
 
 /*
