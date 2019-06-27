@@ -378,8 +378,11 @@ uint64_t sdmmc_wrapper_read(void *buf, uint64_t bufSize, int mmc_id, unsigned in
             if (first_sd_read)
             {
                 first_sd_read = false;
+                // Because some SD cards have issues with emuMMC's driver
+                // we currently swap to FS's driver after first SD read
+                // TODO: Fix remaining driver issues
                 custom_driver = false;
-                // FS will handle sd mutex w/o custom driver
+                // FS will handle sd mutex w/o custom driver from here on
                 unlock_mutex(sd_mutex);
             }
 
