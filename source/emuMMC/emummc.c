@@ -329,15 +329,6 @@ static uint64_t emummc_read_write_inner(void *buf, unsigned int sector, unsigned
     else
         res = !(f_write(fp_tmp, buf, num_sectors << 9, NULL));
 
-    if (res)
-    {
-        if (is_write)
-        {
-            // TODO
-            f_sync(fp_tmp);
-        }
-    }
-
     return res;
 }
 
