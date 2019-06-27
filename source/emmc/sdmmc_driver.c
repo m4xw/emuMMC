@@ -794,7 +794,7 @@ static int _sdmmc_config_dma(sdmmc_t *sdmmc, u32 *blkcnt_out, sdmmc_req_t *req)
 	if (!admaaddr)
 	{
 		// buf is on a heap
-		int dma_idx = sdmmc_get_fitting_dma_index(_current_accessor, blkcnt);
+		int dma_idx = sdmmc_calculate_fitting_dma_index(_current_accessor, blkcnt);
 		admaaddr = (u64)&_current_accessor->parent->dmaBuffers[dma_idx].device_addr_buffer_masked[0];
 		sdmmc->last_dma_idx = dma_idx;
 	}

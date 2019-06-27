@@ -54,25 +54,25 @@ intptr_t sdmmc_calculate_dma_addr(sdmmc_accessor_t *_this, void *buf, unsigned i
     char *_buf = (char *)buf;
     char *actual_buf_start = _buf;
     char *actual_buf_end = &_buf[512 * num_sectors];
-    char *dma_buffer_start = _this->parent->dmaBuffers[FS_SDMMC_EMMC].device_addr_buffer;
+    char *dma_buffer_start = _this->parent->dmaBuffers[0].device_addr_buffer;
 
-    if (dma_buffer_start <= _buf && actual_buf_end <= &dma_buffer_start[_this->parent->dmaBuffers[FS_SDMMC_EMMC].device_addr_buffer_size])
+    if (dma_buffer_start <= _buf && actual_buf_end <= &dma_buffer_start[_this->parent->dmaBuffers[0].device_addr_buffer_size])
     {
-        dma_buf_idx = FS_SDMMC_EMMC;
+        dma_buf_idx = 0;
     }
     else
     {
-        dma_buffer_start = _this->parent->dmaBuffers[FS_SDMMC_SD].device_addr_buffer;
-        if (dma_buffer_start <= actual_buf_start && actual_buf_end <= &dma_buffer_start[_this->parent->dmaBuffers[FS_SDMMC_SD].device_addr_buffer_size])
+        dma_buffer_start = _this->parent->dmaBuffers[1].device_addr_buffer;
+        if (dma_buffer_start <= actual_buf_start && actual_buf_end <= &dma_buffer_start[_this->parent->dmaBuffers[1].device_addr_buffer_size])
         {
-            dma_buf_idx = FS_SDMMC_SD;
+            dma_buf_idx = 1;
         }
         else
         {
-            dma_buffer_start = _this->parent->dmaBuffers[FS_SDMMC_GC].device_addr_buffer;
-            if (dma_buffer_start <= actual_buf_start && actual_buf_end <= &dma_buffer_start[_this->parent->dmaBuffers[FS_SDMMC_GC].device_addr_buffer_size])
+            dma_buffer_start = _this->parent->dmaBuffers[2].device_addr_buffer;
+            if (dma_buffer_start <= actual_buf_start && actual_buf_end <= &dma_buffer_start[_this->parent->dmaBuffers[2].device_addr_buffer_size])
             {
-                dma_buf_idx = FS_SDMMC_GC;
+                dma_buf_idx = 2;
             }
             else
             {
@@ -88,26 +88,65 @@ intptr_t sdmmc_calculate_dma_addr(sdmmc_accessor_t *_this, void *buf, unsigned i
     return admaaddr;
 }
 
-int sdmmc_get_fitting_dma_index(sdmmc_accessor_t *_this, unsigned int num_sectors)
+int sdmmc_calculate_dma_index(sdmmc_accessor_t *_this, void *buf, unsigned int num_sectors)
+{
+    int dma_buf_idx = 0;
+    char *_buf = (char *)buf;
+    char *actual_buf_start = _buf;
+    char *actual_buf_end = &_buf[512 * num_sectors];
+    char *dma_buffer_start = _this->parent->dmaBuffers[0].device_addr_buffer;
+
+    if (dma_buffer_start <= _buf && actual_buf_end <= &dma_buffer_start[_this->parent->dmaBuffers[0].device_addr_buffer_size])
+    {
+        dma_buf_idx = 0;
+    }
+    else
+    {
+        dma_buffer_start = _this->parent->dmaBuffers[1].device_addr_buffer;
+        if (dma_buffer_start <= actual_buf_start && actual_buf_end <= &dma_buffer_start[_this->parent->dmaBuffers[1].device_addr_buffer_size])
+        {
+            dma_buf_idx = 1;
+        }
+        else
+        {
+            dma_buffer_start = _this->parent->dmaBuffers[2].device_addr_buffer;
+            if (dma_buffer_start <= actual_buf_start && actual_buf_end <= &dma_buffer_start[_this->parent->dmaBuffers[2].device_addr_buffer_size])
+            {
+                dma_buf_idx = 2;
+            }
+            else
+            {
+                // If buffer is on a random heap
+                return -1;
+            }
+        }
+    }
+
+	sdmmc_memcpy_buf = false;
+
+    return dma_buf_idx;
+}
+
+int sdmmc_calculate_fitting_dma_index(sdmmc_accessor_t *_this, unsigned int num_sectors)
 {
     int dma_buf_idx = 0;
 	int blkSize = num_sectors * 512;
 
-    if (_this->parent->dmaBuffers[FS_SDMMC_EMMC].device_addr_buffer_size >= blkSize)
+    if (_this->parent->dmaBuffers[0].device_addr_buffer_size >= blkSize)
     {
-        dma_buf_idx = FS_SDMMC_EMMC;
+        dma_buf_idx = 0;
     }
     else
     {
-        if (_this->parent->dmaBuffers[FS_SDMMC_SD].device_addr_buffer_size >= blkSize)
+        if (_this->parent->dmaBuffers[1].device_addr_buffer_size >= blkSize)
         {
-            dma_buf_idx = FS_SDMMC_SD;
+            dma_buf_idx = 1;
         }
         else
         {
-            if (_this->parent->dmaBuffers[FS_SDMMC_GC].device_addr_buffer_size >= blkSize)
+            if (_this->parent->dmaBuffers[2].device_addr_buffer_size >= blkSize)
             {
-                dma_buf_idx = FS_SDMMC_GC;
+                dma_buf_idx = 2;
             }
             else
             {
@@ -272,50 +311,98 @@ extern _sdmmc_accessor_sd sdmmc_accessor_sd;
 extern _sdmmc_accessor_nand sdmmc_accessor_nand;
 int sdmmc_storage_read(sdmmc_storage_t *storage, u32 sector, u32 num_sectors, void *buf)
 {
-    if (!custom_driver)
-    {
-        if (sdmmc_calculate_dma_addr(sdmmc_accessor_sd(), buf, num_sectors))
-        {
-            return !sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, buf, num_sectors * 512, 1);
-        }
-        else
-        {
-            int dma_idx = sdmmc_get_fitting_dma_index(sdmmc_accessor_sd(), num_sectors);
-            void* dma_buf = &sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer[0];
+	if (!custom_driver)
+	{
+		if (sdmmc_calculate_dma_addr(sdmmc_accessor_sd(), buf, num_sectors))
+		{
+			return !sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, buf, num_sectors * 512, 1);
+		}
+		else
+		{
+			if (sdmmc_calculate_dma_addr(sdmmc_accessor_nand(), buf, num_sectors))
+			{
+				// buf is on the nand dma buffer
+				int original_dma_idx = sdmmc_calculate_dma_index(sdmmc_accessor_nand(), buf, num_sectors);
+				sdmmc_dma_buffer_t *original_dma_buffer = &sdmmc_accessor_nand()->parent->dmaBuffers[original_dma_idx];
 
-            u64 res = sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, dma_buf, num_sectors * 512, 1);
-            memcpy(buf, dma_buf, num_sectors * 512);
+				// Next entry
+				int dma_idx = sdmmc_calculate_fitting_dma_index(sdmmc_accessor_sd(), num_sectors) + 1;
 
-            return !res;
-        }
-    }
-    else
-    {
-        return _sdmmc_storage_readwrite(storage, sector, num_sectors, buf, 0);
-    }
+				// TODO: optimize
+				sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer = original_dma_buffer->device_addr_buffer;
+				sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer_masked = original_dma_buffer->device_addr_buffer_masked;
+				sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer_size = original_dma_buffer->device_addr_buffer_size;
+
+				u64 res = sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, buf, num_sectors * 512, 1);
+				memset(&sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx], 0, sizeof(sdmmc_dma_buffer_t));
+
+				return !res;
+			}
+			else
+			{
+				// buf is on a heap
+				int dma_idx = sdmmc_calculate_fitting_dma_index(sdmmc_accessor_sd(), num_sectors);
+				void *dma_buf = &sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer[0];
+
+				u64 res = sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, dma_buf, num_sectors * 512, 1);
+				memcpy(buf, dma_buf, num_sectors * 512);
+
+				return !res;
+			}
+		}
+	}
+	else
+	{
+		return _sdmmc_storage_readwrite(storage, sector, num_sectors, buf, 0);
+	}
 }
 
 int sdmmc_storage_write(sdmmc_storage_t *storage, u32 sector, u32 num_sectors, void *buf)
 {
-    if (!custom_driver)
-    {
-        if (sdmmc_calculate_dma_addr(sdmmc_accessor_sd(), buf, num_sectors))
-        {
-            return !sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, buf, num_sectors * 512, 0);
-        }
-        else
-        {
-            int dma_idx = sdmmc_get_fitting_dma_index(sdmmc_accessor_sd(), num_sectors);
-            void* dma_buf = &sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer[0];
-            
-            memcpy(dma_buf, buf, num_sectors * 512);
-            return !sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, dma_buf, num_sectors * 512, 0);
-        }
-    }
-    else
-    {
-        return _sdmmc_storage_readwrite(storage, sector, num_sectors, buf, 1);
-    }
+	if (!custom_driver)
+	{
+		if (sdmmc_calculate_dma_addr(sdmmc_accessor_sd(), buf, num_sectors))
+		{
+			return !sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, buf, num_sectors * 512, 0);
+		}
+		else
+		{
+			if (sdmmc_calculate_dma_addr(sdmmc_accessor_nand(), buf, num_sectors))
+			{
+				// buf is on the nand dma buffer
+				int original_dma_idx = sdmmc_calculate_dma_index(sdmmc_accessor_nand(), buf, num_sectors);
+				sdmmc_dma_buffer_t *original_dma_buffer = &sdmmc_accessor_nand()->parent->dmaBuffers[original_dma_idx];
+
+				// Next entry
+				int dma_idx = sdmmc_calculate_fitting_dma_index(sdmmc_accessor_sd(), num_sectors) + 1;
+
+				// TODO: optimize
+				sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer = original_dma_buffer->device_addr_buffer;
+				sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer_masked = original_dma_buffer->device_addr_buffer_masked;
+				sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer_size = original_dma_buffer->device_addr_buffer_size;
+
+				u64 res = sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, buf, num_sectors * 512, 0);
+				memset(&sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx], 0, sizeof(sdmmc_dma_buffer_t));
+
+				return !res;
+			}
+			else
+			{
+				// buf is on a heap
+				int dma_idx = sdmmc_calculate_fitting_dma_index(sdmmc_accessor_sd(), num_sectors);
+				void *dma_buf = &sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer[0];
+
+				u64 res = sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, dma_buf, num_sectors * 512, 0);
+				memcpy(buf, dma_buf, num_sectors * 512);
+
+				return !res;
+			}
+		}
+	}
+	else
+	{
+		return _sdmmc_storage_readwrite(storage, sector, num_sectors, buf, 1);
+	}
 }
 
 /*
