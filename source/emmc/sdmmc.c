@@ -402,8 +402,8 @@ int sdmmc_storage_write(sdmmc_storage_t *storage, u32 sector, u32 num_sectors, v
 				int dma_idx = sdmmc_calculate_fitting_dma_index(accessor_sd, num_sectors);
 				void *dma_buf = &accessor_sd->parent->dmaBuffers[dma_idx].device_addr_buffer[0];
 
+				memcpy(dma_buf, buf, num_sectors * 512);
 				u64 res = accessor_sd->vtab->read_write(accessor_sd, sector, num_sectors, dma_buf, num_sectors * 512, 0);
-				memcpy(buf, dma_buf, num_sectors * 512);
 
 				return !res;
 			}
