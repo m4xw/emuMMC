@@ -176,6 +176,8 @@ void setup_hooks(void)
     INJECT_HOOK(fs_offsets->sdmmc_wrapper_read, sdmmc_wrapper_read);
     // sdmmc_wrapper_write hook
     INJECT_HOOK(fs_offsets->sdmmc_wrapper_write, sdmmc_wrapper_write);
+    // sdmmc_wrapper_controller_close hook
+    INJECT_HOOK(fs_offsets->sdmmc_accessor_controller_close, sdmmc_wrapper_controller_close);
 
     // On 8.0.0+, we need to hook the regulator setup, because
     // otherwise it will abort because we have already turned it on.
@@ -205,10 +207,6 @@ void populate_function_pointers(void)
 
 void write_nops(void)
 {
-    // This NOPs out a call to ShutdownSdCard when preparing for shutdown/reboot.
-    // This prevents the PatrolReader from hanging when saving its state, which
-    // occurs immediately afterwards (in ShutdownMmc).
-    INJECT_NOP(fs_offsets->shutdown_sd);
     // On 7.0.0+, we need to attach to device address space ourselves.
     // This patches an abort that happens when Nintendo's code sees SD
     // is already attached

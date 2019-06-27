@@ -92,15 +92,6 @@ static void _sdmmc_ensure_initialized(void)
     }
 }
 
-void sdmmc_finalize(void)
-{
-    if (!sdmmc_storage_end(&sd_storage))
-    {
-        fatal_abort(Fatal_InitSD);
-    }
-    storageSDinitialized = false;
-}
-
 static void _file_based_update_filename(char *outFilename, u32 sd_path_len, u32 part_idx)
 {
     snprintf(outFilename + sd_path_len, 3, "%02d", part_idx);
@@ -124,6 +115,18 @@ static void _file_based_emmc_finalize(void)
 
         fat_mounted = false;
     }
+}
+
+void sdmmc_finalize(void)
+{
+    _file_based_emmc_finalize();
+
+    if (!sdmmc_storage_end(&sd_storage))
+    {
+        fatal_abort(Fatal_InitSD);
+    }
+
+    storageSDinitialized = false;
 }
 
 static void _file_based_emmc_initialize(void)
@@ -336,6 +339,37 @@ static uint64_t emummc_read_write_inner(void *buf, unsigned int sector, unsigned
     }
 
     return res;
+}
+
+// Controller close wrapper
+uint64_t sdmmc_wrapper_controller_close(int mmc_id)
+{
+    sdmmc_accessor_t *_this;
+    _this = sdmmc_accessor_get(mmc_id);
+
+    if (_this != NULL)
+    {
+        if (mmc_id == FS_SDMMC_SD)
+        {
+            return 0;
+        }
+        
+        if (mmc_id == FS_SDMMC_EMMC)
+        {
+            // Close file handles and unmount
+            _file_based_emmc_finalize();
+
+            // Close SD
+            sdmmc_accessor_get(FS_SDMMC_SD)->vtab->sdmmc_accessor_controller_close(sdmmc_accessor_get(FS_SDMMC_SD));
+
+            // Close eMMC
+            return _this->vtab->sdmmc_accessor_controller_close(_this);
+        }
+
+        return _this->vtab->sdmmc_accessor_controller_close(_this);
+    }
+
+    fatal_abort(Fatal_CloseAccessor);
 }
 
 // FS read wrapper.
