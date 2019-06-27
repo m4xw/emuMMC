@@ -313,38 +313,43 @@ int sdmmc_storage_read(sdmmc_storage_t *storage, u32 sector, u32 num_sectors, vo
 {
 	if (!custom_driver)
 	{
-		if (sdmmc_calculate_dma_addr(sdmmc_accessor_sd(), buf, num_sectors))
+		sdmmc_accessor_t *accessor_sd = sdmmc_accessor_sd();
+		sdmmc_accessor_t *accessor_nand = sdmmc_accessor_nand();
+
+		if (sdmmc_calculate_dma_addr(accessor_sd, buf, num_sectors))
 		{
-			return !sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, buf, num_sectors * 512, 1);
+			return !accessor_sd->vtab->read_write(accessor_sd, sector, num_sectors, buf, num_sectors * 512, 1);
 		}
 		else
 		{
-			if (sdmmc_calculate_dma_addr(sdmmc_accessor_nand(), buf, num_sectors))
+			if (sdmmc_calculate_dma_addr(accessor_nand, buf, num_sectors))
 			{
 				// buf is on the nand dma buffer
-				int original_dma_idx = sdmmc_calculate_dma_index(sdmmc_accessor_nand(), buf, num_sectors);
-				sdmmc_dma_buffer_t *original_dma_buffer = &sdmmc_accessor_nand()->parent->dmaBuffers[original_dma_idx];
+				int original_dma_idx = sdmmc_calculate_dma_index(accessor_nand, buf, num_sectors);
+				sdmmc_dma_buffer_t *original_dma_buffer = &accessor_nand->parent->dmaBuffers[original_dma_idx];
 
 				// Next entry
-				int dma_idx = sdmmc_calculate_fitting_dma_index(sdmmc_accessor_sd(), num_sectors) + 1;
+				int dma_idx = sdmmc_calculate_fitting_dma_index(accessor_sd, num_sectors) + 1;
+				
+				accessor_sd->parent->dmaBuffers[dma_idx].device_addr_buffer = original_dma_buffer->device_addr_buffer;
+				accessor_sd->parent->dmaBuffers[dma_idx].device_addr_buffer_masked = original_dma_buffer->device_addr_buffer_masked;
+				accessor_sd->parent->dmaBuffers[dma_idx].device_addr_buffer_size = original_dma_buffer->device_addr_buffer_size;
 
-				// TODO: optimize
-				sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer = original_dma_buffer->device_addr_buffer;
-				sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer_masked = original_dma_buffer->device_addr_buffer_masked;
-				sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer_size = original_dma_buffer->device_addr_buffer_size;
+				u64 res = accessor_sd->vtab->read_write(accessor_sd, sector, num_sectors, buf, num_sectors * 512, 1);
 
-				u64 res = sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, buf, num_sectors * 512, 1);
-				memset(&sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx], 0, sizeof(sdmmc_dma_buffer_t));
+				accessor_sd->parent->dmaBuffers[dma_idx].device_addr_buffer = 0;
+				accessor_sd->parent->dmaBuffers[dma_idx].device_addr_buffer_masked = 0;
+				accessor_sd->parent->dmaBuffers[dma_idx].device_addr_buffer_size = 0;
 
 				return !res;
 			}
 			else
 			{
 				// buf is on a heap
-				int dma_idx = sdmmc_calculate_fitting_dma_index(sdmmc_accessor_sd(), num_sectors);
-				void *dma_buf = &sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer[0];
+				int dma_idx = sdmmc_calculate_fitting_dma_index(accessor_sd, num_sectors);
+				void *dma_buf = &accessor_sd->parent->dmaBuffers[dma_idx].device_addr_buffer[0];
 
-				u64 res = sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, dma_buf, num_sectors * 512, 1);
+				u64 res = accessor_sd->vtab->read_write(accessor_sd, sector, num_sectors, dma_buf, num_sectors * 512, 1);
 				memcpy(buf, dma_buf, num_sectors * 512);
 
 				return !res;
@@ -361,38 +366,43 @@ int sdmmc_storage_write(sdmmc_storage_t *storage, u32 sector, u32 num_sectors, v
 {
 	if (!custom_driver)
 	{
-		if (sdmmc_calculate_dma_addr(sdmmc_accessor_sd(), buf, num_sectors))
+		sdmmc_accessor_t *accessor_sd = sdmmc_accessor_sd();
+		sdmmc_accessor_t *accessor_nand = sdmmc_accessor_nand();
+
+		if (sdmmc_calculate_dma_addr(accessor_sd, buf, num_sectors))
 		{
-			return !sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, buf, num_sectors * 512, 0);
+			return !accessor_sd->vtab->read_write(accessor_sd, sector, num_sectors, buf, num_sectors * 512, 0);
 		}
 		else
 		{
-			if (sdmmc_calculate_dma_addr(sdmmc_accessor_nand(), buf, num_sectors))
+			if (sdmmc_calculate_dma_addr(accessor_nand, buf, num_sectors))
 			{
 				// buf is on the nand dma buffer
-				int original_dma_idx = sdmmc_calculate_dma_index(sdmmc_accessor_nand(), buf, num_sectors);
-				sdmmc_dma_buffer_t *original_dma_buffer = &sdmmc_accessor_nand()->parent->dmaBuffers[original_dma_idx];
+				int original_dma_idx = sdmmc_calculate_dma_index(accessor_nand, buf, num_sectors);
+				sdmmc_dma_buffer_t *original_dma_buffer = &accessor_nand->parent->dmaBuffers[original_dma_idx];
 
 				// Next entry
-				int dma_idx = sdmmc_calculate_fitting_dma_index(sdmmc_accessor_sd(), num_sectors) + 1;
+				int dma_idx = sdmmc_calculate_fitting_dma_index(accessor_sd, num_sectors) + 1;
 
-				// TODO: optimize
-				sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer = original_dma_buffer->device_addr_buffer;
-				sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer_masked = original_dma_buffer->device_addr_buffer_masked;
-				sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer_size = original_dma_buffer->device_addr_buffer_size;
+				accessor_sd->parent->dmaBuffers[dma_idx].device_addr_buffer = original_dma_buffer->device_addr_buffer;
+				accessor_sd->parent->dmaBuffers[dma_idx].device_addr_buffer_masked = original_dma_buffer->device_addr_buffer_masked;
+				accessor_sd->parent->dmaBuffers[dma_idx].device_addr_buffer_size = original_dma_buffer->device_addr_buffer_size;
 
-				u64 res = sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, buf, num_sectors * 512, 0);
-				memset(&sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx], 0, sizeof(sdmmc_dma_buffer_t));
+				u64 res = accessor_sd->vtab->read_write(accessor_sd, sector, num_sectors, buf, num_sectors * 512, 0);
+				
+				accessor_sd->parent->dmaBuffers[dma_idx].device_addr_buffer = 0;
+				accessor_sd->parent->dmaBuffers[dma_idx].device_addr_buffer_masked = 0;
+				accessor_sd->parent->dmaBuffers[dma_idx].device_addr_buffer_size = 0;
 
 				return !res;
 			}
 			else
 			{
 				// buf is on a heap
-				int dma_idx = sdmmc_calculate_fitting_dma_index(sdmmc_accessor_sd(), num_sectors);
-				void *dma_buf = &sdmmc_accessor_sd()->parent->dmaBuffers[dma_idx].device_addr_buffer[0];
+				int dma_idx = sdmmc_calculate_fitting_dma_index(accessor_sd, num_sectors);
+				void *dma_buf = &accessor_sd->parent->dmaBuffers[dma_idx].device_addr_buffer[0];
 
-				u64 res = sdmmc_accessor_sd()->vtab->read_write(sdmmc_accessor_sd(), sector, num_sectors, dma_buf, num_sectors * 512, 0);
+				u64 res = accessor_sd->vtab->read_write(accessor_sd, sector, num_sectors, dma_buf, num_sectors * 512, 0);
 				memcpy(buf, dma_buf, num_sectors * 512);
 
 				return !res;
