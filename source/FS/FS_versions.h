@@ -59,6 +59,7 @@ enum FS_VER
     FS_VER_8_1_0,
     FS_VER_8_1_0_EXFAT,
 
+    FS_VER_9_0_0,
     FS_VER_9_0_0_EXFAT,
 
     FS_VER_MAX,
