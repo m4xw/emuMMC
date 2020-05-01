@@ -28,6 +28,7 @@ extern "C" {
 #include <stdio.h>
 #include <string.h>
 
+#include "../emmc/nx_sd.h"
 #include "../emmc/sdmmc.h"
 #include "../soc/i2c.h"
 #include "../soc/gpio.h"
