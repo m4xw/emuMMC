@@ -187,10 +187,10 @@ bool sdmmc_initialize(void)
 {
     if (!storageSDinitialized)
     {
-        int retries = 5;
+        int retries = 3;
         while (retries)
         {
-            if (sdmmc_storage_init_sd(&sd_storage, &sd_sdmmc, SDMMC_1, SDMMC_BUS_WIDTH_4, 11))
+            if (nx_sd_initialize(false))
             {
                 storageSDinitialized = true;
 
@@ -209,7 +209,6 @@ bool sdmmc_initialize(void)
             }
 
             retries--;
-            msleep(100);
         }
 
         if (!storageSDinitialized)
