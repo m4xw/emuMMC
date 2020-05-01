@@ -530,7 +530,7 @@ static WCHAR LfnBuf[FF_MAX_LFN + 1];		/* LFN working buffer */
 #define FREE_NAMBUF()	ff_memfree(lfn)
 #endif
 #define LEAVE_MKFS(res)	{ if (!work) ff_memfree(buf); return res; }
-#define MAX_MALLOC	0x8000	/* Must be >=FF_MAX_SS */
+#define MAX_MALLOC	0x4000	/* Must be >=FF_MAX_SS */
 
 #else
 #error Wrong setting of FF_USE_LFN
