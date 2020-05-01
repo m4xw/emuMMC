@@ -18,11 +18,10 @@
 
 #include <stdlib.h>
 
-#include "../soc/gpio.h"
-#include "../utils/fatal.h"
-#include "../libs/fatfs/diskio.h"
 #include "emummc.h"
 #include "emummc_ctx.h"
+#include "../utils/fatal.h"
+#include "../libs/fatfs/diskio.h"
 
 static bool sdmmc_first_init = false;
 static bool storageSDinitialized = false;
@@ -34,6 +33,7 @@ sdmmc_t sd_sdmmc;
 sdmmc_storage_t sd_storage;
 
 // init vars
+bool init_done = false;
 bool custom_driver = true;
 
 // FS funcs
@@ -50,8 +50,8 @@ volatile int *active_partition;
 volatile Handle *sdmmc_das_handle;
 
 // FatFS
+file_based_ctxt f_emu;
 static bool fat_mounted = false;
-static file_based_ctxt f_emu;
 
 static void _sdmmc_ensure_device_attached(void)
 {
@@ -67,8 +67,6 @@ static void _sdmmc_ensure_device_attached(void)
 
 static void _sdmmc_ensure_initialized(void)
 {
-    static bool init_done = false;
-
     // First Initial init
     if (!sdmmc_first_init)
     {
@@ -118,8 +116,6 @@ static void _file_based_emmc_finalize(void)
 
 void sdmmc_finalize(void)
 {
-    _file_based_emmc_finalize();
-
     if (!sdmmc_storage_end(&sd_storage))
     {
         fatal_abort(Fatal_InitSD);
@@ -132,7 +128,6 @@ static void _file_based_emmc_initialize(void)
 {
     char path[sizeof(emuMMC_ctx.storagePath) + 0x20];
     memset(&path, 0, sizeof(path));
-    memset(&f_emu, 0, sizeof(file_based_ctxt));
 
     memcpy(path, (void *)emuMMC_ctx.storagePath, sizeof(emuMMC_ctx.storagePath));
     strcat(path, "/eMMC/");
