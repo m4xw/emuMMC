@@ -25,7 +25,6 @@
 #include "emummc_ctx.h"
 
 static bool sdmmc_first_init = false;
-static bool storageMMCinitialized = false;
 static bool storageSDinitialized = false;
 
 // hekate sdmmmc vars
@@ -186,19 +185,6 @@ static void _file_based_emmc_initialize(void)
 
 bool sdmmc_initialize(void)
 {
-    if (!storageMMCinitialized)
-    {
-        if (sdmmc_storage_init_mmc(&storage, &sdmmc, SDMMC_4, SDMMC_BUS_WIDTH_8, 4))
-        {
-            if (sdmmc_storage_set_mmc_partition(&storage, FS_EMMC_PARTITION_GPP))
-                storageMMCinitialized = true;
-        }
-        else
-        {
-            fatal_abort(Fatal_InitMMC);
-        }
-    }
-
     if (!storageSDinitialized)
     {
         int retries = 5;
@@ -232,7 +218,7 @@ bool sdmmc_initialize(void)
         }
     }
 
-    return storageMMCinitialized && storageSDinitialized;
+    return storageSDinitialized;
 }
 
 sdmmc_accessor_t *sdmmc_accessor_get(int mmc_id)
